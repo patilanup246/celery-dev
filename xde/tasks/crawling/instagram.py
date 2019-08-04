@@ -16,12 +16,33 @@ class BaseCrawler(Task):
         return ServiceRegistry.service(InstagramCrawlingService)
 
 
-@app.task(bind=True, base=BaseCrawler)
+@app.task(name='crawl_user', routing_key='rkey', bind=True, base=BaseCrawler)
 def crawl_user(self, usernames):
     try:
         ics = self.instagram_crawling_service
         users = ics.crawl_users(usernames)
         return users
+    except Exception as e:
+        self._logger.error(e, exc_info=True)
+        raise self.retry(exc=e)
+
+
+@app.task(name='process_user', bind=True, base=BaseCrawler)
+def process_user(self, users):
+    try:
+        self._logger.info('Processing...')
+        processed_users = users
+        return processed_users
+    except Exception as e:
+        self._logger.error(e, exc_info=True)
+        raise self.retry(exc=e)
+
+
+@app.task(name='write_user', bind=True, base=BaseCrawler)
+def write_user(self, processed_users):
+    try:
+        self._logger.info('Writing...')
+        return processed_users
     except Exception as e:
         self._logger.error(e, exc_info=True)
         raise self.retry(exc=e)
